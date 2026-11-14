@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { downloadEntries, listEntries, moduleMeta, runAction as applyAction } from '@/api/local-service'
+import { getActiveReaders, getMigrationState } from '@/data/dataset-service'
 import type { EntryRow } from '@/data/types'
+import MigrationPanel from '../common/MigrationPanel'
+import { useMigrationStatus } from '../common/useMigrationStatus'
 
 const meta = moduleMeta('datastore')
 const columns = [
@@ -46,6 +49,8 @@ export default function DatastoreView() {
   const [errorMessage, setErrorMessage] = useState('')
   const [filters, setFilters] = useState<Record<string, string>>({})
   const filterFields = useMemo(() => columns.slice(0, 3), [])
+  const { state: migration, busy, message, run, cleanup, rebuild, refresh } = useMigrationStatus()
+  const [readerCount, setReaderCount] = useState(0)
 
   const reload = useCallback(() => {
     setErrorMessage('')
@@ -53,6 +58,7 @@ export default function DatastoreView() {
       const payload = listEntries(meta.key, filters)
       setRows(payload.items)
       setTotal(payload.total)
+      setReaderCount(getActiveReaders().length)
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : '数据集管理列表读取失败')
     }
@@ -60,13 +66,14 @@ export default function DatastoreView() {
 
   useEffect(() => {
     reload()
-  }, [reload])
+  }, [reload, migration])
 
   function runAction(action: string, row: EntryRow) {
     setErrorMessage('')
     const result = applyAction(meta.key, Number(row.id), action)
     if (!result.ok) {
       setErrorMessage(result.message)
+      refresh()
       return
     }
     reload()
@@ -88,6 +95,16 @@ export default function DatastoreView() {
           </button>
         </div>
       </header>
+
+      <MigrationPanel
+        state={migration}
+        busy={busy}
+        message={message}
+        onRun={run}
+        onCleanup={cleanup}
+        onRebuild={rebuild}
+        readerCount={readerCount}
+      />
 
       <div className="stat-row">
         {stats.map((item) => (
@@ -150,6 +167,62 @@ export default function DatastoreView() {
           )}
         </tbody>
       </table>
+
+      {migration.phase === 'completed' && (
+        <section className="contract-section">
+          <h3>迁移后的字段契约（v2，可校验结构）</h3>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>正式版本</th>
+                <th>数据集编号</th>
+                <th>来源表名</th>
+                <th>更新策略</th>
+                <th>字段契约（保留原始顺序）</th>
+                <th>生命周期天数</th>
+                <th>确认状态</th>
+                <th>原记录指纹</th>
+              </tr>
+            </thead>
+            <tbody>
+              {migration.contracts.map((contract) => (
+                <tr key={contract.version} data-confirmed={contract.confirmed}>
+                  <td>v{contract.version}</td>
+                  <td>{contract.datasetCode}</td>
+                  <td>
+                    {contract.sourceTable ?? '未确认'}
+                    {!contract.sourceTableConfirmed && <span className="badge warn">未确认</span>}
+                  </td>
+                  <td>
+                    {contract.updateStrategy ?? '未确认'}
+                    {!contract.updateStrategyConfirmed && <span className="badge warn">未确认</span>}
+                  </td>
+                  <td>
+                    <ol className="field-contract-list">
+                      {contract.fields.map((field) => (
+                        <li key={field.name}>
+                          {field.name}
+                          <span className="field-type">{field.type ?? '类型未确认'}</span>
+                          {!field.confirmed && <span className="badge warn">未确认</span>}
+                        </li>
+                      ))}
+                    </ol>
+                  </td>
+                  <td>
+                    {contract.lifecycleDays ?? '未确认'}
+                    {!contract.lifecycleConfirmed && <span className="badge warn">未确认</span>}
+                  </td>
+                  <td>{contract.confirmed ? '已确认' : '部分未确认'}</td>
+                  <td className="fingerprint">{contract.sourceFingerprint}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="page-desc">
+            共 {getMigrationState().contracts.length} 条正式契约；隔离记录不占用正式版本号，见上方隔离留证。
+          </p>
+        </section>
+      )}
 
       <footer className="page-foot">
         <span>共 {total} 条数据集管理记录</span>

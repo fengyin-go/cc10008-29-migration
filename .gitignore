@@ -35,6 +35,7 @@ classes/
 .parcel-cache/
 .vite/
 .turbo/
+.test-build/
 .sass-cache/
 *.tsbuildinfo
 .eslintcache

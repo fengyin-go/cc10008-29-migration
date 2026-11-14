@@ -35,3 +35,21 @@ body { margin: 0; background: #f6f8fb; color: #1f2937; }
 .error-text { color: #b42318; }
 .status-legend { display: flex; flex-wrap: wrap; gap: 12px; margin: 0 0 10px; font-size: 12px; color: var(--muted); }
 .legend-item { background: #eef2f7; border-radius: 999px; padding: 2px 10px; }
+
+/* 数据集迁移控制台与字段契约 */
+.migration-panel { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; }
+.migration-panel[data-phase='completed'] { border-color: #12b76a; }
+.migration-panel[data-phase='migrating'] { border-color: #f79009; }
+.migration-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; }
+.migration-head h3 { margin: 0; font-size: 15px; }
+.migration-details { margin-top: 10px; }
+.migration-details summary { cursor: pointer; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+.contract-section { background: #fff; border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; }
+.contract-section h3 { margin: 0 0 10px; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+.badge { display: inline-block; font-size: 11px; line-height: 1; padding: 3px 8px; border-radius: 999px; background: #eef2f7; color: var(--muted); margin-left: 6px; }
+.badge.warn { background: #fef3c7; color: #b54708; }
+.field-contract-list { margin: 0; padding-left: 18px; }
+.field-contract-list li { font-size: 12px; margin-bottom: 2px; }
+.field-type { color: var(--muted); margin-left: 6px; }
+.fingerprint { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: var(--muted); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }

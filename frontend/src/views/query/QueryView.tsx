@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import { downloadEntries, listEntries, moduleMeta, runAction as applyAction } from '@/api/local-service'
+import { getQueryDatasetOptions, markReaderGone, markReaderReady } from '@/data/dataset-service'
 import type { EntryRow } from '@/data/types'
+import { useMigrationStatus } from '../common/useMigrationStatus'
 
 const meta = moduleMeta('query')
 const columns = [
@@ -42,12 +44,31 @@ const stats = [
   }
 ]
 
+const READER_ID = 'query-view'
+
 export default function QueryView() {
   const [rows, setRows] = useState<EntryRow[]>([])
   const [total, setTotal] = useState(0)
   const [errorMessage, setErrorMessage] = useState('')
   const [filters, setFilters] = useState<Record<string, string>>({})
   const filterFields = useMemo(() => columns.slice(0, 3), [])
+  const { state: migration, refresh } = useMigrationStatus()
+
+  // 交互查询读取的数据集字段契约：完成前读旧契约，完成后读 v2 契约。
+  const datasetPayload = useMemo(
+    () => getQueryDatasetOptions(),
+    // migration 变化即重新选择契约来源，避免读到半迁移数据。
+    [migration.phase, migration.contracts.length, migration.updatedAt],
+  )
+
+  // 登记本页已具备新契约读取能力；卸载时注销，供旧键清理判断读取方就绪情况。
+  useEffect(() => {
+    markReaderReady(READER_ID)
+    refresh()
+    return () => {
+      markReaderGone(READER_ID)
+    }
+  }, [refresh])
 
   const reload = useCallback(() => {
     setErrorMessage('')
@@ -90,6 +111,47 @@ export default function QueryView() {
           </button>
         </div>
       </header>
+
+      <section className="contract-section" data-contract-phase={datasetPayload.phase}>
+        <h3>
+          可查询数据集字段契约
+          <span className="badge">
+            {datasetPayload.phase === 'completed' ? '来源：v2 字段契约（迁移后）' : '来源：旧契约（迁移完成前只读旧版）'}
+          </span>
+        </h3>
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>数据集编号</th>
+              <th>数据集名称</th>
+              <th>来源表名</th>
+              <th>更新策略</th>
+              <th>返回字段（保留原始顺序）</th>
+              <th>确认状态</th>
+            </tr>
+          </thead>
+          <tbody>
+            {datasetPayload.options.map((option) => (
+              <tr key={option.datasetCode} data-confirmed={option.confirmed}>
+                <td>{option.datasetCode}</td>
+                <td>{option.name}</td>
+                <td>{option.sourceTable ?? '未确认'}</td>
+                <td>{option.updateStrategy ?? '未确认'}</td>
+                <td>{option.fieldNames.join('、') || '—'}</td>
+                <td>
+                  {option.confirmed ? '已确认' : '未确认'}
+                  {option.hasUnconfirmedFields && <span className="badge warn">含未确认字段</span>}
+                </td>
+              </tr>
+            ))}
+            {datasetPayload.options.length === 0 && (
+              <tr>
+                <td className="empty-state" colSpan={6}>暂无可查询数据集</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </section>
 
       <div className="stat-row">
         {stats.map((item) => (

@@ -8,7 +8,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:migration": "esbuild tests/*.test.ts tests/memory-port.ts --bundle --platform=node --format=esm --outdir=.test-build --out-extension:.js=.mjs && node --test .test-build/*.test.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",

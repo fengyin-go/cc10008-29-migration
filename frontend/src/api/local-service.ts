@@ -1,5 +1,6 @@
 import { MODULE_BY_KEY } from '@/data/modules'
 import { allRows, listRows, resetRows, saveRows } from '@/data/local-store'
+import { canPublishDataset } from '@/data/dataset-service'
 import type { ActionResult, EntryRow, ModuleMeta, OverviewResult, PageResult } from '@/data/types'
 
 // 会写进数据的「往回走」动作：命中就把这条记录标成异常态，看板上能一眼看出来。
@@ -38,6 +39,13 @@ export function runAction(key: string, id: number, action: string): ActionResult
   const index = rows.findIndex((row) => Number(row.id) === id)
   if (index < 0) {
     return { ok: false, message: `没有找到编号为 ${id} 的${meta.entity}` }
+  }
+  // 数据集发布守卫：迁移开始后，不符合新结构的写回保留为待转换并阻止发布。
+  if (key === 'datastore' && action === '生效发布') {
+    const guard = canPublishDataset(rows[index])
+    if (!guard.allowed) {
+      return { ok: false, message: guard.reason }
+    }
   }
   const current = String(rows[index].status)
   if (current === target) {

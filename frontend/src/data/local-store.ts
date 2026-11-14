@@ -57,3 +57,32 @@ export function resetRows(key: string): EntryRow[] {
 export function storageKey(): string {
   return STORAGE_KEY
 }
+
+/**
+ * 直接读取 localStorage 里持久化的 entries（不经内存缓存）。
+ * 数据集迁移需要拿到磁盘上的旧扁平记录作为迁移源，避免读到被页面缓存改写的版本。
+ */
+export function getStoredEntriesRaw(): Record<string, EntryRow[]> {
+  if (typeof window === 'undefined' || !window.localStorage) {
+    return clone(SEED_ROWS)
+  }
+  const raw = window.localStorage.getItem(STORAGE_KEY)
+  if (!raw) {
+    return clone(SEED_ROWS)
+  }
+  try {
+    const parsed = JSON.parse(raw) as Record<string, EntryRow[]>
+    return { ...clone(SEED_ROWS), ...parsed }
+  } catch {
+    return clone(SEED_ROWS)
+  }
+}
+
+/**
+ * 用户清空页面内存缓存后，从已持久化的存储重建缓存。
+ * 迁移状态本身按指纹幂等，重建后不会回填重复记录。
+ */
+export function rebuildCacheFromStorage(): Record<string, EntryRow[]> {
+  cache = null
+  return allRows()
+}
